@@ -5,4 +5,5 @@ export type User = {
   password: string;
   id: string | number;
   connection: WebSocket;
+  currentRoomId: string | number | null;
 };

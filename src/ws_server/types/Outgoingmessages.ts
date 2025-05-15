@@ -1,4 +1,5 @@
 import { OutgoingMessageTypes, WebSocketActionTypes } from '../enums/WebSocketActionTypes';
+import { Ship } from './IncomingMessages';
 import { Room } from './Room';
 
 type OutgoingDataByActionType = {
@@ -8,10 +9,17 @@ type OutgoingDataByActionType = {
     error: boolean;
     errorText: string;
   };
-  [WebSocketActionTypes.UpdateRoom]: Array<Room>;
+  [WebSocketActionTypes.UpdateRoom]: Array<Omit<Room, 'game'>>;
   [WebSocketActionTypes.CreateGame]: {
     idGame: string | number;
     idPlayer: string | number;
+  };
+  [WebSocketActionTypes.StartGame]: {
+    ships: Ship[];
+    currentPlayerIndex: number | string;
+  };
+  [WebSocketActionTypes.Turn]: {
+    currentPlayer: number | string;
   };
 };
 

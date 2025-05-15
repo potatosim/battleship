@@ -1,13 +1,28 @@
 import { RawData } from 'ws';
 import { IncomingMessageTypes, WebSocketActionTypes } from '../enums/WebSocketActionTypes';
 
+export type Ship = {
+  position: {
+    x: number;
+    y: number;
+  };
+  direction: boolean;
+  length: number;
+  type: 'small' | 'medium' | 'large' | 'huge';
+};
+
 type IncomingDataByActionType = {
   [WebSocketActionTypes.Reg]: {
     name: string;
     password: string;
   };
   [WebSocketActionTypes.CreateRoom]: null;
-  [WebSocketActionTypes.AddUserToRoom]: { indexRoom: string | string };
+  [WebSocketActionTypes.AddUserToRoom]: { indexRoom: string | number };
+  [WebSocketActionTypes.AddShips]: {
+    gameId: number | string;
+    ships: Ship[];
+    indexPlayer: number | string;
+  };
 };
 
 type WebSocketIncomingMessage<ActionType extends IncomingMessageTypes> = {
