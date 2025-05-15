@@ -5,19 +5,23 @@ import { User } from './types/User';
 import { createOutgoingMessage } from './types/Outgoingmessages';
 import { Room } from './types/Room';
 
-const players = new Map<string, User>();
+const players = new Map<User['name'], User>();
 const rooms = new Map<string, Room>();
+const connections = new Map<WebSocket, User['name']>();
 
 export const createWSS = () => {
   const wss = new WebSocketServer({
     port: 3000,
   });
 
-  wss.on('connection', (ws, req) => {
+  wss.on('connection', (ws) => {
     console.log('Connected');
 
+    ws.on('close', () => {
+      connections.delete(ws);
+    });
+
     ws.on('message', (message) => {
-      console.log(req.headers);
       try {
         const { type, data, id } = parseIncomingMessageType(message);
 
@@ -33,35 +37,92 @@ export const createWSS = () => {
               return ws.send(
                 createOutgoingMessage(WebSocketActionTypes.Reg, {
                   name: name,
-                  index: name,
+                  index: '',
                   error: true,
-                  errorText: 'Invalid password',
+                  errorText: 'Invalid login or password!',
                 }),
               );
             }
 
+            const userId = crypto.randomUUID();
+
             if (!existedUser) {
-              players.set(name, { name, password });
+              const user: User = {
+                name,
+                password,
+                id: userId,
+                connection: ws,
+              };
+              players.set(name, user);
             }
 
             ws.send(
               createOutgoingMessage(WebSocketActionTypes.Reg, {
-                name: name,
-                index: name,
+                name: existedUser?.name ?? name,
+                index: existedUser?.id ?? userId,
                 error: false,
                 errorText: '',
               }),
             );
+            connections.set(ws, name);
             sendCurrentRooms(ws);
             return;
           }
           case WebSocketActionTypes.CreateRoom: {
-            const uid = crypto.randomUUID();
-            rooms.set(uid, {
-              roomId: uid,
-              roomUsers: [],
+            const userName = connections.get(ws);
+            const user = players.get(userName as string);
+
+            const roomId = crypto.randomUUID();
+
+            rooms.set(roomId, {
+              roomId,
+              roomUsers: user
+                ? [
+                    {
+                      index: user.id,
+                      name: user.name,
+                    },
+                  ]
+                : [],
             });
             sendCurrentRooms(ws);
+            return;
+          }
+          case WebSocketActionTypes.AddUserToRoom: {
+            const { indexRoom } =
+              parseIncomingMessageData<WebSocketActionTypes.AddUserToRoom>(data);
+            const userName = connections.get(ws);
+            const user = players.get(userName as string); // User who's sends action
+
+            const targetRoom = rooms.get(indexRoom);
+
+            if (
+              !targetRoom ||
+              !user ||
+              targetRoom.roomUsers.some((item) => item.index === user.id)
+            ) {
+              return;
+            }
+
+            const userInRoomName = targetRoom.roomUsers[0].name;
+            const userInRoom = players.get(userInRoomName);
+
+            ws.send(
+              createOutgoingMessage(WebSocketActionTypes.CreateGame, {
+                idGame: indexRoom,
+                idPlayer: user.id,
+              }),
+            );
+
+            userInRoom?.connection?.send(
+              createOutgoingMessage(WebSocketActionTypes.CreateGame, {
+                idGame: indexRoom,
+                idPlayer: userInRoom.id,
+              }),
+            );
+
+            rooms.delete(indexRoom);
+            [...connections.keys()].forEach((connection) => sendCurrentRooms(connection));
             return;
           }
           default:

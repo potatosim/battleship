@@ -9,6 +9,10 @@ type OutgoingDataByActionType = {
     errorText: string;
   };
   [WebSocketActionTypes.UpdateRoom]: Array<Room>;
+  [WebSocketActionTypes.CreateGame]: {
+    idGame: string | number;
+    idPlayer: string | number;
+  };
 };
 
 export const createOutgoingMessage = <ActionType extends OutgoingMessageTypes>(

@@ -7,6 +7,7 @@ type IncomingDataByActionType = {
     password: string;
   };
   [WebSocketActionTypes.CreateRoom]: null;
+  [WebSocketActionTypes.AddUserToRoom]: { indexRoom: string | string };
 };
 
 type WebSocketIncomingMessage<ActionType extends IncomingMessageTypes> = {
