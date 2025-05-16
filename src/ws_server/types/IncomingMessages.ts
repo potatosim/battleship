@@ -23,6 +23,16 @@ type IncomingDataByActionType = {
     ships: Ship[];
     indexPlayer: number | string;
   };
+  [WebSocketActionTypes.Attack]: {
+    gameId: number | string;
+    x: number;
+    y: number;
+    indexPlayer: number | string; //userID of user, who attacked
+  };
+  [WebSocketActionTypes.RandomAttack]: {
+    gameId: number | string;
+    indexPlayer: number | string;
+  };
 };
 
 type WebSocketIncomingMessage<ActionType extends IncomingMessageTypes> = {

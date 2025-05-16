@@ -2,6 +2,8 @@ import { OutgoingMessageTypes, WebSocketActionTypes } from '../enums/WebSocketAc
 import { Ship } from './IncomingMessages';
 import { Room } from './Room';
 
+export type Winner = { name: string; wins: number };
+
 type OutgoingDataByActionType = {
   [WebSocketActionTypes.Reg]: {
     name: string;
@@ -21,6 +23,18 @@ type OutgoingDataByActionType = {
   [WebSocketActionTypes.Turn]: {
     currentPlayer: number | string;
   };
+  [WebSocketActionTypes.Attack]: {
+    position: {
+      x: number;
+      y: number;
+    };
+    currentPlayer: number | string;
+    status: 'miss' | 'killed' | 'shot';
+  };
+  [WebSocketActionTypes.Finish]: {
+    winPlayer: number | string;
+  };
+  [WebSocketActionTypes.UpdateWinners]: Winner[];
 };
 
 export const createOutgoingMessage = <ActionType extends OutgoingMessageTypes>(
