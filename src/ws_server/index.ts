@@ -8,12 +8,12 @@ import RoomsService from './services/Rooms.service';
 import GameService from './services/Game.service';
 
 const connections = new Map<WebSocket, User['name']>();
-const winners = new Map<User['name'], Winner>();
+const winners = new Map<User['name'], number>();
 
 export const createWSS = () => {
   const usersService = new UsersService(connections);
   const roomsService = new RoomsService(connections);
-  const gameService = new GameService(connections);
+  const gameService = new GameService(connections, winners);
 
   const wss = new WebSocketServer({
     port: 3000,
@@ -62,7 +62,11 @@ export const createWSS = () => {
             connections.set(ws, name);
             roomsService.sendCurrentRooms(ws);
 
-            ws.send(createOutgoingMessage(WebSocketActionTypes.UpdateWinners, []));
+            const winnersToSend: Winner[] = Array.from(winners.entries()).map(([name, wins]) => ({
+              name,
+              wins,
+            }));
+            ws.send(createOutgoingMessage(WebSocketActionTypes.UpdateWinners, winnersToSend));
             return;
           }
           case WebSocketActionTypes.CreateRoom: {
@@ -116,11 +120,19 @@ export const createWSS = () => {
 
             return;
           }
+          case WebSocketActionTypes.RandomAttack: {
+            const { gameId, indexPlayer } =
+              parseIncomingMessageData<WebSocketActionTypes.RandomAttack>(data);
+
+            gameService.randomAttack(gameId as string, indexPlayer as string);
+
+            return;
+          }
           default:
             return null as never;
         }
       } catch (e) {
-        console.error('Ошибка при разборе JSON:', e);
+        console.error('JSON parse error:', e);
       }
     });
   });

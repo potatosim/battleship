@@ -16,6 +16,7 @@ export type Game = {
   >;
   neighborsState: Map<User['id'], Record<string, number[][]>>;
   shipCoordinates: Map<User['id'], Record<string, number[][]>>;
+  touchedCells: Map<User['id'], Set<string>>;
 };
 
 type Player = {
@@ -25,6 +26,7 @@ type Player = {
   shipState: Record<string, number>;
   neighborsState: Record<string, number[][]>;
   shipCoordinates: Record<string, number[][]>;
+  touchedCells: Set<string>;
 };
 
 export type Players = {
