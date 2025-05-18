@@ -1,10 +1,6 @@
-import { Game } from './Game';
+import { User } from './User';
 
 export type Room = {
   roomId: string;
-  roomUsers: Array<{
-    name: string;
-    index: number | string;
-  }>;
-  game: Game | null;
+  roomUsers: User[];
 };

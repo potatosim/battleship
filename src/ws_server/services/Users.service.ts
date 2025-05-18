@@ -24,7 +24,13 @@ export default class UsersService {
       password,
       id: userId,
       currentRoomId: null,
+      currentGameId: null,
       connection,
+      update: (dto) => {
+        const oldUser = this.users.get(name) as User;
+
+        return this.updateUser(oldUser, dto);
+      },
     };
 
     this.users.set(name, user);
@@ -93,5 +99,16 @@ export default class UsersService {
     }
 
     return this.updateUserByUserName(user.name, dto);
+  }
+
+  updateUser(user: User, dto: Partial<User>): User {
+    const updatedUser = {
+      ...user,
+      ...dto,
+    };
+
+    this.users.set(user.name, updatedUser);
+
+    return updatedUser;
   }
 }

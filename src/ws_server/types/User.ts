@@ -3,7 +3,9 @@ import WebSocket from 'ws';
 export type User = {
   name: string;
   password: string;
-  id: string | number;
+  id: string;
   connection: WebSocket;
-  currentRoomId: string | number | null;
+  currentRoomId: string | null;
+  currentGameId: string | null;
+  update: (userDto: Partial<Omit<User, 'update'>>) => User;
 };

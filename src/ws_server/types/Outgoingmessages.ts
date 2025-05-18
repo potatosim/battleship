@@ -41,6 +41,7 @@ export const createOutgoingMessage = <ActionType extends OutgoingMessageTypes>(
   type: ActionType,
   data: OutgoingDataByActionType[ActionType],
 ): string => {
+  console.log(`Outgoing: [${type}]`);
   return JSON.stringify({
     type,
     id: 0,

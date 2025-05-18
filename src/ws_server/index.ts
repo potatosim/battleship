@@ -1,10 +1,11 @@
 import WebSocket, { WebSocketServer } from 'ws';
-import { parseIncomingMessageData, parseIncomingMessageType, Ship } from './types/IncomingMessages';
+import { parseIncomingMessageData, parseIncomingMessageType } from './types/IncomingMessages';
 import { WebSocketActionTypes } from './enums/WebSocketActionTypes';
 import { User } from './types/User';
 import { createOutgoingMessage, Winner } from './types/Outgoingmessages';
 import UsersService from './services/Users.service';
 import RoomsService from './services/Rooms.service';
+import GameService from './services/Game.service';
 
 const connections = new Map<WebSocket, User['name']>();
 const winners = new Map<User['name'], Winner>();
@@ -12,6 +13,7 @@ const winners = new Map<User['name'], Winner>();
 export const createWSS = () => {
   const usersService = new UsersService(connections);
   const roomsService = new RoomsService(connections);
+  const gameService = new GameService(connections);
 
   const wss = new WebSocketServer({
     port: 3000,
@@ -59,6 +61,7 @@ export const createWSS = () => {
             );
             connections.set(ws, name);
             roomsService.sendCurrentRooms(ws);
+
             ws.send(createOutgoingMessage(WebSocketActionTypes.UpdateWinners, []));
             return;
           }
@@ -69,107 +72,48 @@ export const createWSS = () => {
               return;
             }
 
-            const room = roomsService.createRoom(user);
-
-            usersService.updateUserByUserName(user.name, { currentRoomId: room.roomId });
-
-            return;
+            return roomsService.createRoom(user);
           }
           case WebSocketActionTypes.AddUserToRoom: {
             const { indexRoom } =
               parseIncomingMessageData<WebSocketActionTypes.AddUserToRoom>(data);
             const targetRoom = roomsService.getByRoomId(indexRoom.toString()); // At least one member in room
-
-            if (!targetRoom) {
-              return;
-            }
-
             const user = usersService.getByConnection(ws); // User who's sends action
 
-            // attempt to join in room, when already here
-            if (!user || targetRoom.roomId === user.currentRoomId) {
-              return;
+            const updatedRoom = roomsService.addUserToRoom(targetRoom, user);
+
+            // user was added to room
+            if (updatedRoom?.roomUsers.length === 2) {
+              gameService.createGame(updatedRoom.roomUsers);
             }
 
-            // attempt to join in another room, when already in room;
-            if (user.currentRoomId) {
-              roomsService.deleteRoom(user.currentRoomId as string);
-              usersService.updateUserByUserName(user.name, { currentRoomId: indexRoom });
-            }
-
-            const userInTargetRoom = usersService.getByUserName(
-              targetRoom.roomUsers[0].name,
-            ) as User;
-
-            roomsService.createGame(targetRoom, [user, userInTargetRoom]);
             return;
           }
           case WebSocketActionTypes.AddShips: {
-            const { gameId, ships } = parseIncomingMessageData<WebSocketActionTypes.AddShips>(data);
-            const user = usersService.getByConnection(ws);
-            // const currentRoom = roomsService.getByRoomId(gameId as string);
+            const { gameId, ships, indexPlayer } =
+              parseIncomingMessageData<WebSocketActionTypes.AddShips>(data);
 
-            // if (!currentRoom || !currentRoom.game) {
-            //   return;
-            // }
+            const updatedGame = gameService.addShips(
+              gameId as string,
+              ships,
+              indexPlayer as string,
+            );
 
-            // const updatedReadyPlayers = currentRoom.game.readyPlayers + 1;
-
-            // roomsService.updateRoom(currentRoom, {
-            //   game: {
-            //     ...currentRoom.game,
-            //     readyPlayers: updatedReadyPlayers,
-            //     shipsMap: currentRoom.game.shipsMap.set(userName, ships),
-            //   },
-            // });
-            const room = roomsService.addShips(gameId as string, ships, user);
-
-            if (!room) {
+            if (!updatedGame) {
               return;
             }
 
-            if (room.game?.readyPlayers === room.roomUsers.length) {
-              // game start;
-              const users = room.game.players.map(
-                (username) => usersService.getByUserName(username) as User,
-              );
-
-              const currentPlayer = Math.random() > 0.5 ? users[0].id : users[1].id;
-
-              users.forEach((user) => {
-                user.connection.send(
-                  createOutgoingMessage(WebSocketActionTypes.StartGame, {
-                    currentPlayerIndex: user.id,
-                    ships: room.game?.shipsMap.get(user.name) as Ship[],
-                  }),
-                );
-                user.connection.send(
-                  createOutgoingMessage(WebSocketActionTypes.Turn, {
-                    currentPlayer,
-                  }),
-                );
-              });
-              return;
+            if (updatedGame.readyPlayers === updatedGame.players.length) {
+              gameService.startGame(updatedGame);
             }
 
             return;
           }
           case WebSocketActionTypes.Attack: {
-            // const { x, y, gameId, indexPlayer } =
-            //   parseIncomingMessageData<WebSocketActionTypes.Attack>(data);
-            // const currentRoom = rooms.get(gameId.toString());
+            const { x, y, gameId, indexPlayer } =
+              parseIncomingMessageData<WebSocketActionTypes.Attack>(data);
+            gameService.attack(gameId as string, indexPlayer as string, x, y);
 
-            // if (!currentRoom || !currentRoom.game) {
-            //   return;
-            // }
-            // const attackedUserName = players.values().find(({ id }) => id === indexPlayer)?.name;
-
-            // const victimName = currentRoom.game.players.filter(
-            //   (userName) => userName !== attackedUserName,
-            // )[0];
-
-            // const attackedUserShips = currentRoom?.game.shipsMap.get(victimName);
-            // console.log({ data, attackedUserShips });
             return;
           }
           default:

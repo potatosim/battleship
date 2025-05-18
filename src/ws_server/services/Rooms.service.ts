@@ -1,6 +1,4 @@
 import { WebSocketActionTypes } from '../enums/WebSocketActionTypes';
-import { Game } from '../types/Game';
-import { Ship } from '../types/IncomingMessages';
 import { createOutgoingMessage } from '../types/Outgoingmessages';
 import { Room } from '../types/Room';
 import { User } from '../types/User';
@@ -28,22 +26,17 @@ export default class RoomsService {
     const roomId = crypto.randomUUID();
     const room: Room = {
       roomId,
-      roomUsers: [
-        {
-          index: user.id,
-          name: user.name,
-        },
-      ],
-      game: null,
+      roomUsers: [user],
     };
 
     this.rooms.set(roomId, room);
+    user.update({ currentRoomId: roomId });
+    this.sendCurrentRooms();
 
-    this.sendCurrentRooms(user.connection, true);
     return room;
   }
 
-  sendCurrentRooms(currentConnection: WebSocket, broadcast: boolean = false): void {
+  sendCurrentRooms(currentConnection?: WebSocket): void {
     const roomsToSend = Array.from(this.rooms.values())
       .filter((room) => room.roomUsers.length === 1)
       .map((room) => ({
@@ -53,9 +46,13 @@ export default class RoomsService {
 
     const roomsMessage = createOutgoingMessage(WebSocketActionTypes.UpdateRoom, roomsToSend);
 
-    return broadcast
-      ? [...this.connections.keys()].forEach((connection) => connection.send(roomsMessage))
-      : currentConnection.send(roomsMessage);
+    if (currentConnection) {
+      currentConnection.send(roomsMessage);
+      return;
+    }
+
+    [...this.connections.keys()].forEach((connection) => connection.send(roomsMessage));
+    return;
   }
 
   deleteRoom(roomId: string): void {
@@ -73,61 +70,24 @@ export default class RoomsService {
     return updatedRoom;
   }
 
-  createGame(room: Room, users: [User, User]) {
-    const [firstUser, secondUser] = users;
-
-    const game: Game = {
-      id: room.roomId,
-      players: [firstUser.name, secondUser.name],
-      readyPlayers: 0,
-      shipsMap: new Map(),
-    };
-
-    this.updateRoom(room, {
-      roomUsers: [
-        ...room.roomUsers,
-        {
-          name: secondUser.name,
-          index: secondUser.id,
-        },
-      ],
-      game,
-    });
-
-    users.forEach((user) =>
-      user.connection.send(
-        createOutgoingMessage(WebSocketActionTypes.CreateGame, {
-          idGame: game.id,
-          idPlayer: user.id,
-        }),
-      ),
-    );
-
-    this.sendCurrentRooms(secondUser.connection, true);
-  }
-
-  addShips(gameId: string, ships: Ship[], user: User | null): Room | null {
-    const currentRoom = this.getByRoomId(gameId);
-
-    if (!currentRoom || !currentRoom.game || !user) {
+  addUserToRoom(room: Room | null, user: User | null): Room | null {
+    // attempt to join in room, when already here
+    if (!room || !user || room.roomId === user.currentRoomId) {
       return null;
     }
 
-    const updatedReadyPlayers = currentRoom.game.readyPlayers + 1;
+    // attempt to join in another room, when already in room;
+    if (user.currentRoomId) {
+      this.deleteRoom(user.currentRoomId as string);
+      user.update({ currentRoomId: room.roomId });
+    }
 
-    const updatedRoom = this.updateRoom(currentRoom, {
-      game: {
-        ...currentRoom.game,
-        readyPlayers: updatedReadyPlayers,
-        shipsMap: currentRoom.game.shipsMap.set(user.name, ships),
-      },
+    const updatedRoom = this.updateRoom(room, {
+      roomUsers: [...room.roomUsers, user],
     });
+
+    this.sendCurrentRooms();
 
     return updatedRoom;
   }
 }
-
-// const parseShipsToMatrixField = (ships: Ship[]) => {
-//   const field = []
-
-// };
