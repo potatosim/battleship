@@ -8,4 +8,11 @@ export type User = {
   currentRoomId: string | null;
   currentGameId: string | null;
   update: (userDto: Partial<Omit<User, 'update'>>) => User;
+  type: 'user';
+};
+
+export type Bot = {
+  name: string;
+  id: string;
+  type: 'bot';
 };

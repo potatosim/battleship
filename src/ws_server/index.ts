@@ -2,18 +2,20 @@ import WebSocket, { WebSocketServer } from 'ws';
 import { parseIncomingMessageData, parseIncomingMessageType } from './types/IncomingMessages';
 import { WebSocketActionTypes } from './enums/WebSocketActionTypes';
 import { User } from './types/User';
-import { createOutgoingMessage, Winner } from './types/Outgoingmessages';
+import { createOutgoingMessage } from './types/Outgoingmessages';
 import UsersService from './services/Users.service';
 import RoomsService from './services/Rooms.service';
 import GameService from './services/Game.service';
+import WinnersService from './services/Winners.service';
+import { delayedBotAttack } from './utils/delayedBotAttack';
 
 const connections = new Map<WebSocket, User['name']>();
-const winners = new Map<User['name'], number>();
 
 export const createWSS = () => {
   const usersService = new UsersService(connections);
   const roomsService = new RoomsService(connections);
-  const gameService = new GameService(connections, winners);
+  const gameService = new GameService(connections);
+  const winnersService = new WinnersService(connections);
 
   const wss = new WebSocketServer({
     port: 3000,
@@ -23,6 +25,21 @@ export const createWSS = () => {
     console.log('Connected');
 
     ws.on('close', () => {
+      const leavedUser = usersService.getByConnection(ws);
+
+      if (leavedUser && leavedUser.currentRoomId) {
+        roomsService.deleteRoom(leavedUser.currentRoomId);
+      }
+
+      if (leavedUser && leavedUser.currentGameId) {
+        const result = gameService.finishWhenLeave(leavedUser.currentGameId, leavedUser.id);
+
+        if (result) {
+          winnersService.update(result.winner);
+          winnersService.sendWinners();
+        }
+      }
+
       connections.delete(ws);
     });
 
@@ -49,7 +66,9 @@ export const createWSS = () => {
               );
             }
 
-            const user = existedUser || usersService.createUser({ connection: ws, name, password });
+            const user = existedUser
+              ? existedUser.update({ connection: ws })
+              : usersService.createUser({ connection: ws, name, password });
 
             ws.send(
               createOutgoingMessage(WebSocketActionTypes.Reg, {
@@ -61,12 +80,7 @@ export const createWSS = () => {
             );
             connections.set(ws, name);
             roomsService.sendCurrentRooms(ws);
-
-            const winnersToSend: Winner[] = Array.from(winners.entries()).map(([name, wins]) => ({
-              name,
-              wins,
-            }));
-            ws.send(createOutgoingMessage(WebSocketActionTypes.UpdateWinners, winnersToSend));
+            winnersService.sendWinners(ws);
             return;
           }
           case WebSocketActionTypes.CreateRoom: {
@@ -116,7 +130,22 @@ export const createWSS = () => {
           case WebSocketActionTypes.Attack: {
             const { x, y, gameId, indexPlayer } =
               parseIncomingMessageData<WebSocketActionTypes.Attack>(data);
-            gameService.attack(gameId as string, indexPlayer as string, x, y);
+
+            const result = gameService.attack(gameId as string, indexPlayer as string, x, y);
+
+            if (!result) {
+              return;
+            }
+
+            if (result.isSingleGame && result.status === 'miss') {
+              delayedBotAttack(gameService, gameId as string);
+              return;
+            }
+
+            if (result.status === 'finish' && result.winner) {
+              winnersService.update(result.winner);
+              winnersService.sendWinners();
+            }
 
             return;
           }
@@ -124,7 +153,32 @@ export const createWSS = () => {
             const { gameId, indexPlayer } =
               parseIncomingMessageData<WebSocketActionTypes.RandomAttack>(data);
 
-            gameService.randomAttack(gameId as string, indexPlayer as string);
+            const result = gameService.randomAttack(gameId as string, indexPlayer as string);
+
+            if (!result) {
+              return;
+            }
+
+            if (result.isSingleGame && result.status === 'miss') {
+              delayedBotAttack(gameService, gameId as string);
+              return;
+            }
+
+            if (result.status === 'finish' && result.winner) {
+              winnersService.update(result.winner);
+              winnersService.sendWinners();
+            }
+
+            return;
+          }
+          case WebSocketActionTypes.SinglePlay: {
+            const user = usersService.getByConnection(ws);
+
+            if (!user) {
+              return;
+            }
+
+            gameService.createSingleGame(user);
 
             return;
           }

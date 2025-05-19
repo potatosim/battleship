@@ -1,15 +1,6 @@
 import { RawData } from 'ws';
 import { IncomingMessageTypes, WebSocketActionTypes } from '../enums/WebSocketActionTypes';
-
-export type Ship = {
-  position: {
-    x: number;
-    y: number;
-  };
-  direction: boolean;
-  length: number;
-  type: 'small' | 'medium' | 'large' | 'huge';
-};
+import { Ship } from './Ship';
 
 type IncomingDataByActionType = {
   [WebSocketActionTypes.Reg]: {
@@ -33,6 +24,7 @@ type IncomingDataByActionType = {
     gameId: number | string;
     indexPlayer: number | string;
   };
+  [WebSocketActionTypes.SinglePlay]: null;
 };
 
 type WebSocketIncomingMessage<ActionType extends IncomingMessageTypes> = {

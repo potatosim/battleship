@@ -11,6 +11,7 @@ export enum WebSocketActionTypes {
   UpdateWinners = 'update_winners',
   Finish = 'finish',
   RandomAttack = 'randomAttack',
+  SinglePlay = 'single_play',
 }
 
 export type IncomingMessageTypes =
@@ -19,7 +20,9 @@ export type IncomingMessageTypes =
   | WebSocketActionTypes.AddUserToRoom
   | WebSocketActionTypes.AddShips
   | WebSocketActionTypes.Attack
-  | WebSocketActionTypes.RandomAttack;
+  | WebSocketActionTypes.RandomAttack
+  | WebSocketActionTypes.SinglePlay;
+
 export type OutgoingMessageTypes =
   | WebSocketActionTypes.UpdateRoom
   | WebSocketActionTypes.Reg

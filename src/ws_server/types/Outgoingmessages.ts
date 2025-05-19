@@ -1,6 +1,6 @@
 import { OutgoingMessageTypes, WebSocketActionTypes } from '../enums/WebSocketActionTypes';
-import { Ship } from './IncomingMessages';
 import { Room } from './Room';
+import { Ship } from './Ship';
 
 export type Winner = { name: string; wins: number };
 

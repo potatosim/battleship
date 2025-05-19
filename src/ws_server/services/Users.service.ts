@@ -31,6 +31,7 @@ export default class UsersService {
 
         return this.updateUser(oldUser, dto);
       },
+      type: 'user',
     };
 
     this.users.set(name, user);
