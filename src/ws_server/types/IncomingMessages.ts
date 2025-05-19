@@ -1,8 +1,7 @@
-import { RawData } from 'ws';
 import { IncomingMessageTypes, WebSocketActionTypes } from '../enums/WebSocketActionTypes';
 import { Ship } from './Ship';
 
-type IncomingDataByActionType = {
+export type IncomingDataByActionType = {
   [WebSocketActionTypes.Reg]: {
     name: string;
     password: string;
@@ -27,7 +26,7 @@ type IncomingDataByActionType = {
   [WebSocketActionTypes.SinglePlay]: null;
 };
 
-type WebSocketIncomingMessage<ActionType extends IncomingMessageTypes> = {
+export type WebSocketIncomingMessage<ActionType extends IncomingMessageTypes> = {
   type: ActionType;
   data: string;
   id: 0;
@@ -41,17 +40,3 @@ type ParsedIncomingMessage<ActionType extends IncomingMessageTypes> = {
 
 export type WebSocketIncomingMessages = WebSocketIncomingMessage<WebSocketActionTypes.Reg>;
 export type ParsedWebSocketIncomingMessage = ParsedIncomingMessage<WebSocketActionTypes.Reg>;
-
-export const parseIncomingMessageType = <ActionType extends IncomingMessageTypes>(
-  incomingMessage: RawData,
-): WebSocketIncomingMessage<ActionType> => {
-  const action = JSON.parse(incomingMessage.toString()) as WebSocketIncomingMessage<ActionType>;
-
-  return action;
-};
-
-export const parseIncomingMessageData = <ActionType extends IncomingMessageTypes>(
-  data: string,
-): IncomingDataByActionType[ActionType] => {
-  return JSON.parse(data) as IncomingDataByActionType[ActionType];
-};

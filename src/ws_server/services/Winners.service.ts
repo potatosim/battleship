@@ -1,12 +1,16 @@
 import { WebSocketActionTypes } from '../enums/WebSocketActionTypes';
-import { createOutgoingMessage, Winner } from '../types/Outgoingmessages';
+import { Winner } from '../types/Outgoingmessages';
 import { User } from '../types/User';
 
 import WebSocket from 'ws';
+import ParserService from './Parser.service';
 export default class WinnersService {
   private readonly winners: Map<User['name'], number>;
 
-  constructor(private readonly connections: Map<WebSocket, string>) {
+  constructor(
+    private readonly connections: Map<WebSocket, string>,
+    private readonly parserService: ParserService,
+  ) {
     this.winners = new Map();
   }
 
@@ -22,15 +26,18 @@ export default class WinnersService {
       wins,
     }));
 
+    const messageToSend = this.parserService.createOutgoingMessage(
+      WebSocketActionTypes.UpdateWinners,
+      winnersToSend,
+    );
+
     if (connection) {
-      connection.send(createOutgoingMessage(WebSocketActionTypes.UpdateWinners, winnersToSend));
+      connection.send(messageToSend);
 
       return;
     }
 
-    [...this.connections.keys()].forEach((connection) =>
-      connection.send(createOutgoingMessage(WebSocketActionTypes.UpdateWinners, winnersToSend)),
-    );
+    [...this.connections.keys()].forEach((connection) => connection.send(messageToSend));
     return;
   }
 }

@@ -58,7 +58,7 @@ export const generateShips = (gridSize = 10): Ship[] => {
     }
 
     if (placed < count) {
-      throw new Error(`Не удалось разместить все корабли типа "${type}"`);
+      throw new Error(`Can't set ships "${type}"`);
     }
   }
 

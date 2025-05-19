@@ -1,14 +1,17 @@
 import { WebSocketActionTypes } from '../enums/WebSocketActionTypes';
-import { createOutgoingMessage } from '../types/Outgoingmessages';
 import { Room } from '../types/Room';
 import { User } from '../types/User';
 
 import WebSocket from 'ws';
+import ParserService from './Parser.service';
 
 export default class RoomsService {
   private readonly rooms: Map<string, Room>;
 
-  constructor(private readonly connections: Map<WebSocket, string>) {
+  constructor(
+    private readonly connections: Map<WebSocket, string>,
+    private readonly parserService: ParserService,
+  ) {
     this.rooms = new Map();
   }
 
@@ -44,7 +47,10 @@ export default class RoomsService {
         roomUsers: room.roomUsers,
       }));
 
-    const roomsMessage = createOutgoingMessage(WebSocketActionTypes.UpdateRoom, roomsToSend);
+    const roomsMessage = this.parserService.createOutgoingMessage(
+      WebSocketActionTypes.UpdateRoom,
+      roomsToSend,
+    );
 
     if (currentConnection) {
       currentConnection.send(roomsMessage);

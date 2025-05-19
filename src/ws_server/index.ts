@@ -1,32 +1,47 @@
 import WebSocket, { WebSocketServer } from 'ws';
-import { parseIncomingMessageData, parseIncomingMessageType } from './types/IncomingMessages';
-import { WebSocketActionTypes } from './enums/WebSocketActionTypes';
-import { User } from './types/User';
-import { createOutgoingMessage } from './types/Outgoingmessages';
-import UsersService from './services/Users.service';
-import RoomsService from './services/Rooms.service';
+
 import GameService from './services/Game.service';
+import { LoggerService } from './services/Logger.service';
+import ParserService from './services/Parser.service';
+import RoomsService from './services/Rooms.service';
+import { User } from './types/User';
+import UsersService from './services/Users.service';
+import { WebSocketActionTypes } from './enums/WebSocketActionTypes';
 import WinnersService from './services/Winners.service';
 import { delayedBotAttack } from './utils/delayedBotAttack';
 
 const connections = new Map<WebSocket, User['name']>();
 
+const PORT = 3000;
+
 export const createWSS = () => {
+  const loggerService = new LoggerService();
+  const parserService = new ParserService(connections, loggerService);
+
   const usersService = new UsersService(connections);
-  const roomsService = new RoomsService(connections);
-  const gameService = new GameService(connections);
-  const winnersService = new WinnersService(connections);
+  const roomsService = new RoomsService(connections, parserService);
+  const gameService = new GameService(parserService);
+  const winnersService = new WinnersService(connections, parserService);
 
   const wss = new WebSocketServer({
-    port: 3000,
+    port: PORT,
   });
 
   wss.on('connection', (ws) => {
-    console.log('Connected');
+    loggerService.info(`WebSocket server is listening on ws://localhost:${PORT}`);
+
+    process.on('SIGINT', () => {
+      loggerService.info('SIGINT received. Closing WebSocket...');
+
+      connections.keys().forEach((connection) => connection.close(1000, 'Client shutting down'));
+      setTimeout(() => {
+        process.exit(0);
+      }, 2000);
+    });
 
     ws.on('close', () => {
       const leavedUser = usersService.getByConnection(ws);
-
+      loggerService.info('Connection is closed');
       if (leavedUser && leavedUser.currentRoomId) {
         roomsService.deleteRoom(leavedUser.currentRoomId);
       }
@@ -39,25 +54,26 @@ export const createWSS = () => {
           winnersService.sendWinners();
         }
       }
-
+      loggerService.info(`User ${leavedUser?.name} lost the connection`);
       connections.delete(ws);
     });
 
     ws.on('message', (message) => {
       try {
-        const { type, data, id } = parseIncomingMessageType(message);
+        const { type, data } = parserService.parseIncomingMessageType(message, ws);
 
-        console.log(`Incoming: [${type}:${id}]`); // ${JSON.stringify(data, null, 2)}
+        // loggerService.log(`'Incoming data on ${type}:`, data);
 
         switch (type) {
           case WebSocketActionTypes.Reg: {
-            const { name, password } = parseIncomingMessageData<WebSocketActionTypes.Reg>(data);
+            const { name, password } =
+              parserService.parseIncomingMessageData<WebSocketActionTypes.Reg>(data);
 
             const existedUser = usersService.getByUserName(name);
 
             if (existedUser && existedUser.password !== password) {
               return ws.send(
-                createOutgoingMessage(WebSocketActionTypes.Reg, {
+                parserService.createOutgoingMessage(WebSocketActionTypes.Reg, {
                   name: name,
                   index: '',
                   error: true,
@@ -71,7 +87,7 @@ export const createWSS = () => {
               : usersService.createUser({ connection: ws, name, password });
 
             ws.send(
-              createOutgoingMessage(WebSocketActionTypes.Reg, {
+              parserService.createOutgoingMessage(WebSocketActionTypes.Reg, {
                 name: user.name,
                 index: user.id,
                 error: false,
@@ -94,7 +110,7 @@ export const createWSS = () => {
           }
           case WebSocketActionTypes.AddUserToRoom: {
             const { indexRoom } =
-              parseIncomingMessageData<WebSocketActionTypes.AddUserToRoom>(data);
+              parserService.parseIncomingMessageData<WebSocketActionTypes.AddUserToRoom>(data);
             const targetRoom = roomsService.getByRoomId(indexRoom.toString()); // At least one member in room
             const user = usersService.getByConnection(ws); // User who's sends action
 
@@ -109,7 +125,7 @@ export const createWSS = () => {
           }
           case WebSocketActionTypes.AddShips: {
             const { gameId, ships, indexPlayer } =
-              parseIncomingMessageData<WebSocketActionTypes.AddShips>(data);
+              parserService.parseIncomingMessageData<WebSocketActionTypes.AddShips>(data);
 
             const updatedGame = gameService.addShips(
               gameId as string,
@@ -129,7 +145,7 @@ export const createWSS = () => {
           }
           case WebSocketActionTypes.Attack: {
             const { x, y, gameId, indexPlayer } =
-              parseIncomingMessageData<WebSocketActionTypes.Attack>(data);
+              parserService.parseIncomingMessageData<WebSocketActionTypes.Attack>(data);
 
             const result = gameService.attack(gameId as string, indexPlayer as string, x, y);
 
@@ -151,7 +167,7 @@ export const createWSS = () => {
           }
           case WebSocketActionTypes.RandomAttack: {
             const { gameId, indexPlayer } =
-              parseIncomingMessageData<WebSocketActionTypes.RandomAttack>(data);
+              parserService.parseIncomingMessageData<WebSocketActionTypes.RandomAttack>(data);
 
             const result = gameService.randomAttack(gameId as string, indexPlayer as string);
 
@@ -186,7 +202,7 @@ export const createWSS = () => {
             return null as never;
         }
       } catch (e) {
-        console.error('JSON parse error:', e);
+        loggerService.error('JSON parse error:', e);
       }
     });
   });

@@ -1,20 +1,19 @@
 import { Game, Players } from '../types/Game';
-import WebSocket from 'ws';
 import { User } from '../types/User';
-import { createOutgoingMessage } from '../types/Outgoingmessages';
 import { WebSocketActionTypes } from '../enums/WebSocketActionTypes';
 import { Ship } from '../types/Ship';
 import { getPlayers } from '../utils/getPlayers';
 import { getRandomCoordinate } from '../utils/getRandomCoordinate';
 import { parseShipsToMatrixField } from '../utils/parseShips';
 import { generateShips } from '../utils/generateShips';
+import ParserService from './Parser.service';
 
 export const BOT_ID = 'MY_SUPER_BOT';
 
 export default class GameService {
   private readonly games: Map<Game['id'], Game>;
 
-  constructor(private readonly connections: Map<WebSocket, string>) {
+  constructor(private readonly parserService: ParserService) {
     this.games = new Map();
   }
 
@@ -47,7 +46,7 @@ export default class GameService {
 
     users.forEach((user) => {
       user.connection.send(
-        createOutgoingMessage(WebSocketActionTypes.CreateGame, {
+        this.parserService.createOutgoingMessage(WebSocketActionTypes.CreateGame, {
           idGame: game.id,
           idPlayer: user.id,
         }),
@@ -96,7 +95,7 @@ export default class GameService {
     game.touchedCells.set(BOT_ID, new Set());
 
     user.connection.send(
-      createOutgoingMessage(WebSocketActionTypes.CreateGame, {
+      this.parserService.createOutgoingMessage(WebSocketActionTypes.CreateGame, {
         idGame: gameId,
         idPlayer: user.id,
       }),
@@ -154,14 +153,14 @@ export default class GameService {
     game.players.forEach((user) => {
       if (user.type === 'user') {
         user.connection.send(
-          createOutgoingMessage(WebSocketActionTypes.StartGame, {
+          this.parserService.createOutgoingMessage(WebSocketActionTypes.StartGame, {
             currentPlayerIndex: user.id,
             ships: game.shipsMap.get(user.id as string) as Ship[],
           }),
         );
 
         user.connection.send(
-          createOutgoingMessage(WebSocketActionTypes.Turn, {
+          this.parserService.createOutgoingMessage(WebSocketActionTypes.Turn, {
             currentPlayer,
           }),
         );
@@ -233,7 +232,7 @@ export default class GameService {
       return null;
     }
     const { target } = getPlayers(game, playerId);
-    console.log({ target });
+
     let x = getRandomCoordinate();
     let y = getRandomCoordinate();
 
@@ -257,14 +256,14 @@ export default class GameService {
     game.players.forEach((player) => {
       if (player.type === 'user') {
         player.connection.send(
-          createOutgoingMessage(WebSocketActionTypes.Attack, {
+          this.parserService.createOutgoingMessage(WebSocketActionTypes.Attack, {
             status: 'miss',
             currentPlayer: attacker.user.id,
             position: { x, y },
           }),
         );
         player.connection.send(
-          createOutgoingMessage(WebSocketActionTypes.Turn, {
+          this.parserService.createOutgoingMessage(WebSocketActionTypes.Turn, {
             currentPlayer: target.user.id,
           }),
         );
@@ -278,14 +277,14 @@ export default class GameService {
     game.players.forEach((player) => {
       if (player.type === 'user') {
         player.connection.send(
-          createOutgoingMessage(WebSocketActionTypes.Attack, {
+          this.parserService.createOutgoingMessage(WebSocketActionTypes.Attack, {
             currentPlayer: attacker.user.id,
             position: { x, y },
             status: 'shot',
           }),
         );
         player.connection.send(
-          createOutgoingMessage(WebSocketActionTypes.Turn, {
+          this.parserService.createOutgoingMessage(WebSocketActionTypes.Turn, {
             currentPlayer: attacker.user.id,
           }),
         );
@@ -304,7 +303,7 @@ export default class GameService {
       target.shipCoordinates[targetCell].forEach(([y, x]) => {
         if (player.type === 'user') {
           player.connection.send(
-            createOutgoingMessage(WebSocketActionTypes.Attack, {
+            this.parserService.createOutgoingMessage(WebSocketActionTypes.Attack, {
               status: 'killed',
               currentPlayer: attacker.user.id,
               position: { x, y },
@@ -317,7 +316,7 @@ export default class GameService {
         target.touchedCells.add(`${x}-${y}`);
         if (player.type === 'user') {
           player.connection.send(
-            createOutgoingMessage(WebSocketActionTypes.Attack, {
+            this.parserService.createOutgoingMessage(WebSocketActionTypes.Attack, {
               status: 'miss',
               position: { x, y },
               currentPlayer: attacker.user.id,
@@ -328,7 +327,7 @@ export default class GameService {
 
       if (player.type === 'user') {
         player.connection.send(
-          createOutgoingMessage(WebSocketActionTypes.Turn, {
+          this.parserService.createOutgoingMessage(WebSocketActionTypes.Turn, {
             currentPlayer: attacker.user.id,
           }),
         );
@@ -347,7 +346,7 @@ export default class GameService {
       game.players.forEach((player) => {
         if (player.type === 'user') {
           player.connection.send(
-            createOutgoingMessage(WebSocketActionTypes.Finish, {
+            this.parserService.createOutgoingMessage(WebSocketActionTypes.Finish, {
               winPlayer: attacker.user.id,
             }),
           );
@@ -378,7 +377,7 @@ export default class GameService {
       if (winner) {
         if (winner.type === 'user') {
           winner.connection.send(
-            createOutgoingMessage(WebSocketActionTypes.Finish, {
+            this.parserService.createOutgoingMessage(WebSocketActionTypes.Finish, {
               winPlayer: winner.id,
             }),
           );

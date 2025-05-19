@@ -1,10 +1,10 @@
-import { OutgoingMessageTypes, WebSocketActionTypes } from '../enums/WebSocketActionTypes';
+import { WebSocketActionTypes } from '../enums/WebSocketActionTypes';
 import { Room } from './Room';
 import { Ship } from './Ship';
 
 export type Winner = { name: string; wins: number };
 
-type OutgoingDataByActionType = {
+export type OutgoingDataByActionType = {
   [WebSocketActionTypes.Reg]: {
     name: string;
     index: number | string;
@@ -35,16 +35,4 @@ type OutgoingDataByActionType = {
     winPlayer: number | string;
   };
   [WebSocketActionTypes.UpdateWinners]: Winner[];
-};
-
-export const createOutgoingMessage = <ActionType extends OutgoingMessageTypes>(
-  type: ActionType,
-  data: OutgoingDataByActionType[ActionType],
-): string => {
-  console.log(`Outgoing: [${type}]`);
-  return JSON.stringify({
-    type,
-    id: 0,
-    data: JSON.stringify(data),
-  });
 };
