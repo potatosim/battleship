@@ -21,7 +21,11 @@ export default class ParserService {
   ): WebSocketIncomingMessage<ActionType> {
     const action = JSON.parse(incomingMessage.toString()) as WebSocketIncomingMessage<ActionType>;
     const username = ws && this.connections.get(ws);
-    this.logger.log(`Received action: [${action.type}] from - ${username ?? 'Unknown user'}!`);
+    this.logger.logIncoming(
+      action.type,
+      `Received message from - ${username ?? 'Unknown user'}!`,
+      'info',
+    );
 
     return action;
   }
@@ -38,18 +42,90 @@ export default class ParserService {
     type: ActionType,
     data: OutgoingDataByActionType[ActionType],
   ): string {
-    console.log({ type });
     switch (type) {
       case WebSocketActionTypes.Reg: {
         const { error, index, name } = data as OutgoingDataByActionType[WebSocketActionTypes.Reg];
 
         if (error) {
-          this.logger.error(`Incorrect password for user - ${name}`);
+          this.logger.logOutgoing(type, `Incorrect password for user - ${name}`, 'error');
           break;
         }
+        this.logger.logOutgoing(
+          type,
+          `Successfully login/register user - ${name}, userId - ${index}`,
+          'log',
+        );
+        break;
+      }
+      case WebSocketActionTypes.UpdateRoom: {
+        const rooms = data as OutgoingDataByActionType[WebSocketActionTypes.UpdateRoom];
+        this.logger.logOutgoing(
+          type,
+          `The list of rooms and players have been sent to users!`,
+          'info',
+        );
+        if (rooms.length) {
+          console.table(
+            rooms.map((item) => ({ ...item, roomUsers: JSON.stringify(item.roomUsers) })),
+          );
+        }
+        break;
+      }
+      case WebSocketActionTypes.CreateGame: {
+        const { idGame, idPlayer } =
+          data as OutgoingDataByActionType[WebSocketActionTypes.CreateGame];
 
-        this.logger.info(`Successfully login/register user - ${name}, userId - ${index}`);
-
+        this.logger.logOutgoing(
+          type,
+          `Game created, gameId - ${idGame}. Sending game data to user, userId - ${idPlayer}`,
+          'log',
+        );
+        break;
+      }
+      case WebSocketActionTypes.StartGame: {
+        const { currentPlayerIndex } =
+          data as OutgoingDataByActionType[WebSocketActionTypes.StartGame];
+        this.logger.logOutgoing(
+          type,
+          `All ships are here! The game is started! Sending to user, userId - ${currentPlayerIndex}`,
+          'log',
+        );
+        break;
+      }
+      case WebSocketActionTypes.Turn: {
+        const { currentPlayer } = data as OutgoingDataByActionType[WebSocketActionTypes.Turn];
+        this.logger.logOutgoing(
+          type,
+          `Turn changed! Current player is, userId - ${currentPlayer}`,
+          'info',
+        );
+        break;
+      }
+      case WebSocketActionTypes.Finish: {
+        const { winPlayer } = data as OutgoingDataByActionType[WebSocketActionTypes.Finish];
+        this.logger.logOutgoing(
+          type,
+          `The game is over! Player with userId - ${winPlayer} won!`,
+          'log',
+        );
+        break;
+      }
+      case WebSocketActionTypes.UpdateWinners: {
+        const winners = data as OutgoingDataByActionType[WebSocketActionTypes.UpdateWinners];
+        this.logger.logOutgoing(type, `The winners' table has been sent to users!`, 'info');
+        if (winners.length) {
+          console.table(winners);
+        }
+        break;
+      }
+      case WebSocketActionTypes.Attack: {
+        const { status, position, currentPlayer } =
+          data as OutgoingDataByActionType[WebSocketActionTypes.Attack];
+        this.logger.logOutgoing(
+          type,
+          `Player(${currentPlayer}) attack result is - ${status}, attacked position is x:${position.x} y:${position.y}`,
+          'log',
+        );
         break;
       }
       default:

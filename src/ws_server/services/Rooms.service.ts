@@ -44,7 +44,7 @@ export default class RoomsService {
       .filter((room) => room.roomUsers.length === 1)
       .map((room) => ({
         roomId: room.roomId,
-        roomUsers: room.roomUsers,
+        roomUsers: room.roomUsers.map((user) => ({ name: user.name, index: user.id })),
       }));
 
     const roomsMessage = this.parserService.createOutgoingMessage(

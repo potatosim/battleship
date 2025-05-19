@@ -28,15 +28,10 @@ export const createWSS = () => {
   });
 
   wss.on('connection', (ws) => {
-    loggerService.info(`WebSocket server is listening on ws://localhost:${PORT}`);
-
     process.on('SIGINT', () => {
       loggerService.info('SIGINT received. Closing WebSocket...');
-
       connections.keys().forEach((connection) => connection.close(1000, 'Client shutting down'));
-      setTimeout(() => {
-        process.exit(0);
-      }, 2000);
+      process.exit(0);
     });
 
     ws.on('close', () => {
@@ -61,8 +56,6 @@ export const createWSS = () => {
     ws.on('message', (message) => {
       try {
         const { type, data } = parserService.parseIncomingMessageType(message, ws);
-
-        // loggerService.log(`'Incoming data on ${type}:`, data);
 
         switch (type) {
           case WebSocketActionTypes.Reg: {
@@ -106,6 +99,8 @@ export const createWSS = () => {
               return;
             }
 
+            loggerService.info(`Room for user - ${user.name} was created!`);
+
             return roomsService.createRoom(user);
           }
           case WebSocketActionTypes.AddUserToRoom: {
@@ -115,6 +110,12 @@ export const createWSS = () => {
             const user = usersService.getByConnection(ws); // User who's sends action
 
             const updatedRoom = roomsService.addUserToRoom(targetRoom, user);
+
+            if (user) {
+              loggerService.info(
+                `User ${user.name} has been added to the room ${targetRoom?.roomId}`,
+              );
+            }
 
             // user was added to room
             if (updatedRoom?.roomUsers.length === 2) {
@@ -127,6 +128,7 @@ export const createWSS = () => {
             const { gameId, ships, indexPlayer } =
               parserService.parseIncomingMessageData<WebSocketActionTypes.AddShips>(data);
 
+            loggerService.info(`User with userId ${indexPlayer} set ships on the field`);
             const updatedGame = gameService.addShips(
               gameId as string,
               ships,
@@ -138,6 +140,7 @@ export const createWSS = () => {
             }
 
             if (updatedGame.readyPlayers === updatedGame.players.length) {
+              loggerService.log(`Both players added ships and ready to start!`);
               gameService.startGame(updatedGame);
             }
 
@@ -194,6 +197,10 @@ export const createWSS = () => {
               return;
             }
 
+            loggerService.log(
+              `${user.name} wants to play with bot! Please, set your ships on the field`,
+            );
+
             gameService.createSingleGame(user);
 
             return;
@@ -202,7 +209,7 @@ export const createWSS = () => {
             return null as never;
         }
       } catch (e) {
-        loggerService.error('JSON parse error:', e);
+        console.error('JSON parse error:', e);
       }
     });
   });

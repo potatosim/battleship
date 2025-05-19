@@ -1,5 +1,4 @@
 import { WebSocketActionTypes } from '../enums/WebSocketActionTypes';
-import { Room } from './Room';
 import { Ship } from './Ship';
 
 export type Winner = { name: string; wins: number };
@@ -11,7 +10,13 @@ export type OutgoingDataByActionType = {
     error: boolean;
     errorText: string;
   };
-  [WebSocketActionTypes.UpdateRoom]: Array<Omit<Room, 'game'>>;
+  [WebSocketActionTypes.UpdateRoom]: Array<{
+    roomId: number | string;
+    roomUsers: Array<{
+      name: string;
+      index: number | string;
+    }>;
+  }>;
   [WebSocketActionTypes.CreateGame]: {
     idGame: string | number;
     idPlayer: string | number;
